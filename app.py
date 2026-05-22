@@ -6,10 +6,6 @@ import re
 
 st.set_page_config(page_title="Monitor de Campanha", layout="wide")
 
-# =====================================================
-# CSS — VISUAL CAMPANHA PROTOP
-# =====================================================
-
 st.markdown("""
 <style>
 .block-container {
@@ -28,10 +24,6 @@ h1 {
     font-weight: 900 !important;
     margin-top: 0px !important;
     padding-top: 0px !important;
-}
-
-p, label {
-    color: #111827;
 }
 
 div[data-testid="stCaptionContainer"] {
@@ -100,18 +92,9 @@ div.stButton > button:hover {
     border: 1px solid #DCE3EA;
     overflow: hidden;
 }
-
-hr {
-    border-color: #22B8CF;
-}
-
 </style>
 """, unsafe_allow_html=True)
 
-
-# =====================================================
-# FUNÇÕES BASE
-# =====================================================
 
 def normalizar(txt):
     if pd.isna(txt):
@@ -128,13 +111,10 @@ def numero(v):
             return 0.0
         if isinstance(v, (int, float, np.integer, np.floating)):
             return float(v)
-
         v = str(v).strip()
         v = v.replace("R$", "").replace("%", "").strip()
-
         if "," in v:
             v = v.replace(".", "").replace(",", ".")
-
         return float(v)
     except:
         return 0.0
@@ -156,24 +136,16 @@ def pct(v):
 
 def achar_header(excel, aba, palavras):
     temp = pd.read_excel(excel, sheet_name=aba, header=None, nrows=80)
-
     for i in range(len(temp)):
         linha = " ".join(temp.iloc[i].dropna().astype(str).tolist()).upper()
         if all(p.upper() in linha for p in palavras):
             return i
-
     return 0
 
 
 def ler_aba(excel, aba, palavras_header):
     linha_header = achar_header(excel, aba, palavras_header)
-
-    df = pd.read_excel(
-        excel,
-        sheet_name=aba,
-        header=linha_header
-    )
-
+    df = pd.read_excel(excel, sheet_name=aba, header=linha_header)
     df = df.dropna(axis=0, how="all")
     df = df.dropna(axis=1, how="all")
 
@@ -182,7 +154,6 @@ def ler_aba(excel, aba, palavras_header):
 
     for c in df.columns:
         nome = normalizar(c)
-
         if nome == "":
             nome = "coluna"
 
@@ -194,7 +165,6 @@ def ler_aba(excel, aba, palavras_header):
             colunas.append(f"{nome}_{contador[nome]}")
 
     df.columns = colunas
-
     return df
 
 
@@ -248,10 +218,6 @@ def formatar_tabela(df):
     return df
 
 
-# =====================================================
-# TOPO
-# =====================================================
-
 topo1, topo2 = st.columns([8, 1])
 
 with topo1:
@@ -272,12 +238,7 @@ arquivo = st.file_uploader(
 )
 
 
-# =====================================================
-# APP
-# =====================================================
-
 if arquivo:
-
     try:
         engine = "pyxlsb" if arquivo.name.endswith(".xlsb") else None
         excel = pd.ExcelFile(arquivo, engine=engine)
@@ -382,10 +343,6 @@ if arquivo:
             "Status POS": df_st["Status POS"]
         })
 
-        # =====================================================
-        # CARDS
-        # =====================================================
-
         meta_vb = base["Meta VB"].sum()
         real_vb = base["Real VB"].sum()
         falta_vb = base["Falta VB"].sum()
@@ -416,10 +373,6 @@ if arquivo:
         with c4:
             st.metric("Pontuação Total", int(pont_vb + pont_pos))
 
-        # =====================================================
-        # FILTRO GLOBAL DE FAMÍLIA
-        # =====================================================
-
         familias = ["Todas"] + sorted(base["Família"].dropna().astype(str).unique())
 
         familia_filtro = st.selectbox(
@@ -431,10 +384,6 @@ if arquivo:
             base_filtrada = base[base["Família"] == familia_filtro].copy()
         else:
             base_filtrada = base.copy()
-
-        # =====================================================
-        # QUADROS PRINCIPAIS
-        # =====================================================
 
         col1, col2 = st.columns(2)
 
@@ -494,10 +443,6 @@ if arquivo:
                 height=360
             )
 
-        # =====================================================
-        # RAIO-X DO CLIENTE
-        # =====================================================
-
         st.subheader("🔎 RAIO-X DO CLIENTE")
         st.caption("Selecione um cliente e veja se comprou ou não a família selecionada.")
 
@@ -514,7 +459,13 @@ if arquivo:
 
         filtro_status = st.selectbox(
             "Filtro Cliente",
-            ["Todos", "Falta vender", "Já positivou"]
+            [
+                "Todos",
+                "Falta vender",
+                "Já positivou",
+                "Somente POS",
+                "Somente VB"
+            ]
         )
 
         cliente_df = df_posit[
@@ -522,14 +473,14 @@ if arquivo:
         ]
 
         if not cliente_df.empty:
-
             cliente_row = cliente_df.iloc[0]
-
             base_raiox = base_filtrada.copy()
-
             linhas = []
 
             for _, fam in base_raiox.iterrows():
+
+                if fam["Status VB"] == "🟢 Fechada" and fam["Status POS"] == "🟢 Fechada":
+                    continue
 
                 codigo = normalizar(fam["Código Linha"])
                 familia = normalizar(fam["Família"])
@@ -578,8 +529,17 @@ if arquivo:
 
             df_raiox = pd.DataFrame(linhas)
 
-            if filtro_status != "Todos":
-                df_raiox = df_raiox[df_raiox["Status Cliente"] == filtro_status]
+            if filtro_status == "Falta vender":
+                df_raiox = df_raiox[df_raiox["Status Cliente"] == "Falta vender"]
+
+            elif filtro_status == "Já positivou":
+                df_raiox = df_raiox[df_raiox["Status Cliente"] == "Já positivou"]
+
+            elif filtro_status == "Somente POS":
+                df_raiox = df_raiox[df_raiox["Status POS"] != "🟢 Fechada"]
+
+            elif filtro_status == "Somente VB":
+                df_raiox = df_raiox[df_raiox["Status VB"] != "🟢 Fechada"]
 
             ordem = {
                 "Alta prioridade: pode ajudar VB e POS": 1,
@@ -605,33 +565,21 @@ if arquivo:
                 )
 
             if gerar_whats:
-
                 df_faltantes = df_raiox[
                     df_raiox["Status Cliente"] == "Falta vender"
                 ]
 
                 texto = f"""🚀 CHECKLIST DA VISITA
+👤 Cliente: {cliente_escolhido}
 
-👤 Cliente:
-{cliente_escolhido}
-
-━━━━━━━━━━━━━━
-
-🎯 FAMÍLIAS PARA OFERTAR
+🎯 FAMÍLIAS:
 """
 
                 for _, row in df_faltantes.head(8).iterrows():
-                    texto += f"""
-☐ {row['Família']}
-💰 VB: {moeda(row['Falta VB'])}
-🎯 POS: {int(row['Falta POS'])}
-📌 {row['Ação sugerida']}
+                    texto += f"""☐ {row['Família']}
+VB: {moeda(row['Falta VB'])}
+POS: {int(row['Falta POS'])}
 
-"""
-
-                texto += """━━━━━━━━━━━━━━
-
-✅ Foco
 """
 
                 st.code(texto, language=None)
