@@ -8,7 +8,6 @@ st.set_page_config(page_title="Monitor de Campanha", layout="wide")
 
 st.markdown("""
 <style>
-
 .block-container {
     padding-top: 2.8rem !important;
     padding-left: 1.2rem !important;
@@ -98,7 +97,6 @@ div.stButton > button:hover {
     border: 1px solid #DCE3EA;
     overflow: hidden;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -323,6 +321,17 @@ if arquivo:
 
             st.stop()
 
+        # Pontuação oficial da planilha: coluna P / linha 8
+        df_original = pd.read_excel(
+            excel,
+            sheet_name=aba_st,
+            header=None
+        )
+
+        pontuacao_total = numero(
+            df_original.iloc[7, 15]
+        )
+
         df_st = ler_aba(
             excel,
             aba_st,
@@ -506,12 +515,6 @@ if arquivo:
             base["Status POS"] != "🟢 Fechada"
         ).sum()
 
-        pontuacao_total = (
-            int(total_vb_fechado) * 600
-        ) + (
-            int(total_pos_fechado) * 700
-        )
-
         c1, c2, c3, c4, c5 = st.columns(5)
 
         with c1:
@@ -540,7 +543,7 @@ if arquivo:
 
         with c5:
             st.metric(
-                "Pontuação Total",
+                "Projeção Pontuação Total",
                 int(pontuacao_total)
             )
 
